@@ -169,6 +169,12 @@ fi
 # ── configuration, from the plugin options ──────────────────────────────────
 
 if [ -n "${CLAUDE_PLUGIN_OPTION_PROXY_URL:-}" ]; then
+  # The credential travels with every call, so the proxy must be reached over
+  # HTTPS. A loopback address is accepted for a proxy on the same machine.
+  case "$CLAUDE_PLUGIN_OPTION_PROXY_URL" in
+    https://*|http://127.0.0.1:*|http://127.0.0.1/*|http://localhost:*|http://localhost/*|http://\[::1\]:*) ;;
+    *) fail "the Meilynx proxy URL must start with https://." ;;
+  esac
   MEILYNX_HOOK_PROXY_URL="$CLAUDE_PLUGIN_OPTION_PROXY_URL"; export MEILYNX_HOOK_PROXY_URL
 fi
 if [ -n "${CLAUDE_PLUGIN_OPTION_CREDENTIAL:-}" ]; then
