@@ -30,13 +30,13 @@
     },
     "credential_file": {
       "type": "file",
-      "title": "Credential file (optional)",
-      "description": "A file holding the credential on one line, for machines where your IT team provisions it. Leave empty when you entered the credential above."
+      "title": "Credential file",
+      "description": "Optional. A file holding the credential on one line, for machines where your IT team provisions it. Leave empty when you entered the credential above."
     },
     "config_file": {
       "type": "file",
-      "title": "Configuration file (optional)",
-      "description": "A Meilynx hook configuration file provided by your IT team. Leave empty unless they gave you one."
+      "title": "Configuration file",
+      "description": "Optional. A Meilynx hook configuration file provided by your IT team. Leave empty unless they gave you one."
     }
   }
 }
