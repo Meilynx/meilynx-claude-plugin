@@ -1,0 +1,3 @@
+# SHA-256 checksums of the Meilynx hook adapter release named in RELEASE.
+# The hook runner executes a downloaded adapter only when its checksum matches
+# a line here. No release is pinned yet, so every covered tool call is denied.

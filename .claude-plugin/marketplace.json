@@ -1,0 +1,17 @@
+{
+  "name": "meilynx",
+  "owner": {
+    "name": "Meilynx",
+    "email": "support@meilynx.com",
+    "url": "https://www.meilynx.com"
+  },
+  "description": "Meilynx plugins for Claude Code.",
+  "plugins": [
+    {
+      "name": "meilynx",
+      "source": "./",
+      "description": "Governs the tools Claude Code runs on a developer machine through your organization's Meilynx proxy, and seals every decision into your audit chain.",
+      "category": "security"
+    }
+  ]
+}

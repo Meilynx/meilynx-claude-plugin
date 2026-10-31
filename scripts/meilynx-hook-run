@@ -1,0 +1,188 @@
+#!/bin/sh
+# Meilynx hook runner for Claude Code.
+#
+# Claude Code runs this script before and after each covered tool call
+# (hooks/hooks.json). It starts the Meilynx hook adapter, which asks the
+# organization's Meilynx proxy for a decision.
+#
+#   meilynx-hook-run pre       PreToolUse: any failure here denies the tool call
+#   meilynx-hook-run post      PostToolUse: reports a failure, never blocks
+#   meilynx-hook-run install   SessionStart: fetch and verify the adapter ahead of use
+#
+# The adapter is fetched once per release from the location in adapter/RELEASE
+# and must match the SHA-256 checksum pinned in adapter/SHA256SUMS before it is
+# ever run. A file that does not match is deleted and never executed.
+#
+# Configuration comes from the plugin options Claude Code stores for this
+# plugin (proxy URL, credential, credential file, configuration file). The
+# credential is passed to the adapter through its environment only. This script
+# never prints it, writes it to disk or puts it on a command line.
+
+set -u
+
+MODE="${1:-pre}"
+ROOT="${CLAUDE_PLUGIN_ROOT:-}"
+if [ -z "$ROOT" ]; then
+  ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
+fi
+
+# ── outcomes ────────────────────────────────────────────────────────────────
+
+fail() {
+  # PreToolUse: exit 2 blocks the tool call and shows the reason.
+  # PostToolUse: exit 1 reports the failure; the tool has already run.
+  # SessionStart: exit 1 shows a notice; the next covered call retries.
+  case "$MODE" in
+    pre)
+      printf 'Meilynx denied the tool call: %s The tool did not run (fail-closed).\n' "$1" >&2
+      exit 2 ;;
+    post)
+      printf 'Meilynx could not record the tool result: %s\n' "$1" >&2
+      exit 1 ;;
+    *)
+      printf 'Meilynx hook adapter is not ready: %s Covered tool calls are denied until it is.\n' "$1" >&2
+      exit 1 ;;
+  esac
+}
+
+case "$MODE" in
+  pre|post|install) ;;
+  *) MODE=pre; fail "the hook runner was started with an unknown mode." ;;
+esac
+
+# ── which build this machine needs ──────────────────────────────────────────
+
+EXT=""
+OS=$(uname -s 2>/dev/null || echo unknown)
+ARCH=$(uname -m 2>/dev/null || echo unknown)
+case "$OS" in
+  Darwin)
+    case "$ARCH" in
+      arm64|aarch64) TARGET=aarch64-apple-darwin ;;
+      x86_64) TARGET=x86_64-apple-darwin ;;
+      *) fail "there is no adapter build for macOS on $ARCH." ;;
+    esac ;;
+  Linux)
+    case "$ARCH" in
+      x86_64|amd64) TARGET=x86_64-unknown-linux-musl ;;
+      aarch64|arm64) TARGET=aarch64-unknown-linux-musl ;;
+      *) fail "there is no adapter build for Linux on $ARCH." ;;
+    esac ;;
+  MINGW*|MSYS*|CYGWIN*)
+    TARGET=x86_64-pc-windows-msvc
+    EXT=".exe" ;;
+  *) fail "there is no adapter build for $OS." ;;
+esac
+
+# ── the pinned release ──────────────────────────────────────────────────────
+
+RELEASE_FILE="$ROOT/adapter/RELEASE"
+SUMS_FILE="$ROOT/adapter/SHA256SUMS"
+[ -r "$RELEASE_FILE" ] && [ -r "$SUMS_FILE" ] || fail "the plugin's pinned adapter release is missing."
+
+VERSION=$(sed -n 's/^version=//p' "$RELEASE_FILE" | head -n 1)
+BASE_URL=$(sed -n 's/^base_url=//p' "$RELEASE_FILE" | head -n 1)
+[ -n "$VERSION" ] && [ -n "$BASE_URL" ] || fail "the plugin's pinned adapter release is incomplete."
+
+FILE="meilynx-hook-${VERSION}-${TARGET}${EXT}"
+EXPECTED=$(awk -v f="$FILE" '$2 == f || $2 == "*" f { print $1; exit }' "$SUMS_FILE")
+case "$EXPECTED" in
+  [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]*) ;;
+  *) fail "this plugin version pins no checksum for $FILE." ;;
+esac
+[ "${#EXPECTED}" -eq 64 ] || fail "the pinned checksum for $FILE is malformed."
+
+case "$BASE_URL" in
+  https://*) PROTO="=https" ;;
+  file://*) PROTO="=file" ;;   # an internal mirror in an organization's fork
+  *) fail "the pinned adapter location must be an https:// address." ;;
+esac
+
+DATA="${CLAUDE_PLUGIN_DATA:-}"
+[ -n "$DATA" ] || DATA="${HOME:-}/.meilynx/claude-plugin"
+DIR="$DATA/adapter/$VERSION"
+BIN="$DIR/$FILE"
+MARK="$BIN.verified"
+
+sha256_of() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{ print $1 }'
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | awk '{ print $1 }'
+  else
+    echo ""
+  fi
+}
+
+verified_now() {
+  # Hash the file on disk and compare it with the pinned checksum.
+  [ -f "$BIN" ] || return 1
+  [ "$(sha256_of "$BIN")" = "$EXPECTED" ]
+}
+
+fetch() {
+  # $1: the time budget in seconds for the download.
+  mkdir -p "$DIR" 2>/dev/null || fail "cannot create $DIR."
+  TMP="$DIR/.download.$$"
+  rm -f "$TMP"
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL --proto "$PROTO" --proto-redir "$PROTO" --connect-timeout 10 --max-time "$1" \
+      -o "$TMP" "$BASE_URL/$FILE" 2>/dev/null
+  elif command -v wget >/dev/null 2>&1 && [ "$PROTO" = "=https" ]; then
+    wget -q --https-only --timeout="$1" -O "$TMP" "$BASE_URL/$FILE"
+  else
+    false
+  fi || { rm -f "$TMP"; fail "the adapter could not be downloaded from $BASE_URL."; }
+  GOT=$(sha256_of "$TMP")
+  if [ -z "$GOT" ]; then
+    rm -f "$TMP"; fail "no SHA-256 tool (sha256sum or shasum) is available to verify the adapter."
+  fi
+  if [ "$GOT" != "$EXPECTED" ]; then
+    rm -f "$TMP"; fail "the downloaded adapter does not match the pinned checksum and was deleted."
+  fi
+  chmod 755 "$TMP" 2>/dev/null
+  mv -f "$TMP" "$BIN" || { rm -f "$TMP"; fail "cannot install the adapter into $DIR."; }
+  printf '%s\n' "$EXPECTED" > "$MARK"
+}
+
+if [ "$MODE" = "install" ]; then
+  # Every session re-hashes the installed adapter; a mismatch is replaced.
+  if ! verified_now; then
+    rm -f "$BIN" "$MARK"
+    fetch 100
+  else
+    printf '%s\n' "$EXPECTED" > "$MARK"
+  fi
+  exit 0
+fi
+
+# A tool call: run the adapter the session start verified, or fetch it now.
+if [ ! -x "$BIN" ] || [ "$(cat "$MARK" 2>/dev/null)" != "$EXPECTED" ]; then
+  if ! verified_now; then
+    rm -f "$BIN" "$MARK"
+    fetch 40
+  else
+    printf '%s\n' "$EXPECTED" > "$MARK"
+  fi
+fi
+
+# ── configuration, from the plugin options ──────────────────────────────────
+
+if [ -n "${CLAUDE_PLUGIN_OPTION_PROXY_URL:-}" ]; then
+  MEILYNX_HOOK_PROXY_URL="$CLAUDE_PLUGIN_OPTION_PROXY_URL"; export MEILYNX_HOOK_PROXY_URL
+fi
+if [ -n "${CLAUDE_PLUGIN_OPTION_CREDENTIAL:-}" ]; then
+  MEILYNX_HOOK_CREDENTIAL="$CLAUDE_PLUGIN_OPTION_CREDENTIAL"; export MEILYNX_HOOK_CREDENTIAL
+fi
+unset CLAUDE_PLUGIN_OPTION_CREDENTIAL
+if [ -n "${CLAUDE_PLUGIN_OPTION_CREDENTIAL_FILE:-}" ]; then
+  MEILYNX_HOOK_CREDENTIAL_FILE="$CLAUDE_PLUGIN_OPTION_CREDENTIAL_FILE"; export MEILYNX_HOOK_CREDENTIAL_FILE
+fi
+if [ -n "${CLAUDE_PLUGIN_OPTION_CONFIG_FILE:-}" ]; then
+  MEILYNX_HOOK_CONFIG="$CLAUDE_PLUGIN_OPTION_CONFIG_FILE"; export MEILYNX_HOOK_CONFIG
+fi
+
+[ -x "$BIN" ] || fail "the adapter at $BIN is not executable."
+
+# The adapter reads the hook input from stdin and answers Claude Code itself.
+exec "$BIN" --host claude-code

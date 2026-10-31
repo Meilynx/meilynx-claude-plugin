@@ -1,0 +1,42 @@
+{
+  "name": "meilynx",
+  "displayName": "Meilynx",
+  "version": "0.1.0",
+  "description": "Governs the tools Claude Code runs on a developer machine. Before each shell command, file edit, web fetch or MCP tool call, your organization's Meilynx proxy decides whether it may run and seals the decision into your audit chain.",
+  "author": {
+    "name": "Meilynx",
+    "email": "support@meilynx.com",
+    "url": "https://www.meilynx.com"
+  },
+  "homepage": "https://docs.meilynx.com/mcp/claude-code-hooks",
+  "repository": "https://github.com/Meilynx/meilynx-claude-plugin",
+  "license": "LicenseRef-Meilynx-Proprietary",
+  "keywords": ["governance", "compliance", "audit", "hooks", "security"],
+  "documentationUrl": "https://docs.meilynx.com/mcp/claude-code-hooks",
+  "supportUrl": "https://www.meilynx.com/contact",
+  "privacyPolicyUrl": "https://www.meilynx.com/privacy",
+  "termsOfServiceUrl": "https://www.meilynx.com/terms",
+  "userConfig": {
+    "proxy_url": {
+      "type": "string",
+      "title": "Meilynx proxy URL",
+      "description": "Your organization's Meilynx proxy, for example https://px-7f3a2c9d.proxy.meilynx.com. Covered tool calls are sent here for a decision."
+    },
+    "credential": {
+      "type": "string",
+      "title": "Meilynx credential",
+      "description": "The agent credential or project key your Meilynx administrator issued. Stored in your system's secure credential store, never in a settings file.",
+      "sensitive": true
+    },
+    "credential_file": {
+      "type": "file",
+      "title": "Credential file (optional)",
+      "description": "A file holding the credential on one line, for machines where your IT team provisions it. Leave empty when you entered the credential above."
+    },
+    "config_file": {
+      "type": "file",
+      "title": "Configuration file (optional)",
+      "description": "A Meilynx hook configuration file provided by your IT team. Leave empty unless they gave you one."
+    }
+  }
+}
