@@ -150,7 +150,7 @@ To check the chain without relying on Meilynx systems:
 
 ## Documentation and support
 
-- Setup guide: [docs.meilynx.com/mcp/claude-code-hooks](https://docs.meilynx.com/mcp/claude-code-hooks)
+- Customer documentation, for signed-in Meilynx customers: [docs.meilynx.com/mcp/claude-code-hooks](https://docs.meilynx.com/mcp/claude-code-hooks)
 - Support: [support@meilynx.com](mailto:support@meilynx.com)
 - Security reports: [security@meilynx.com](mailto:security@meilynx.com)
 - Privacy policy: [meilynx.com/privacy](https://www.meilynx.com/privacy)
