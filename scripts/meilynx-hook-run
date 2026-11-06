@@ -101,7 +101,8 @@ esac
 DATA="${CLAUDE_PLUGIN_DATA:-}"
 [ -n "$DATA" ] || DATA="${HOME:-}/.meilynx/claude-plugin"
 DIR="$DATA/adapter/$VERSION"
-BIN="$DIR/$FILE"
+# The installed adapter has one fixed name inside its version folder.
+BIN="$DIR/meilynx-hook$EXT"
 MARK="$BIN.verified"
 
 sha256_of() {
@@ -146,7 +147,12 @@ fetch() {
     rm -f "$TMP"; fail "the downloaded adapter does not match the pinned checksum and was deleted."
   fi
   chmod 755 "$TMP" 2>/dev/null
-  mv -f "$TMP" "$BIN" || { rm -f "$TMP"; fail "cannot install the adapter into $DIR."; }
+  # Installed under a fixed name, spelled out here for the same reason.
+  if [ -n "$EXT" ]; then
+    ( cd "$DIR" && mv -f adapter.download meilynx-hook.exe )
+  else
+    ( cd "$DIR" && mv -f adapter.download meilynx-hook )
+  fi || { rm -f "$TMP"; fail "cannot install the adapter into $DIR."; }
   printf '%s\n' "$EXPECTED" > "$MARK"
 }
 
