@@ -103,7 +103,13 @@ DATA="${CLAUDE_PLUGIN_DATA:-}"
 DIR="$DATA/adapter/$VERSION"
 # The installed adapter has one fixed name inside its version folder.
 BIN="$DIR/meilynx-hook$EXT"
-MARK="$BIN.verified"
+MARK="$DIR/meilynx-hook.verified"
+
+mark_verified() {
+  # Records the checksum the installed adapter was verified against, in a
+  # file with a fixed name spelled out here.
+  ( cd "$DIR" && printf '%s\n' "$EXPECTED" > meilynx-hook.verified )
+}
 
 sha256_of() {
   if command -v sha256sum >/dev/null 2>&1; then
@@ -153,7 +159,7 @@ fetch() {
   else
     ( cd "$DIR" && mv -f adapter.download meilynx-hook )
   fi || { rm -f "$TMP"; fail "cannot install the adapter into $DIR."; }
-  printf '%s\n' "$EXPECTED" > "$MARK"
+  mark_verified
 }
 
 if [ "$MODE" = "install" ]; then
@@ -162,7 +168,7 @@ if [ "$MODE" = "install" ]; then
     rm -f "$BIN" "$MARK"
     fetch 100
   else
-    printf '%s\n' "$EXPECTED" > "$MARK"
+    mark_verified
   fi
   exit 0
 fi
@@ -173,7 +179,7 @@ if [ ! -x "$BIN" ] || [ "$(cat "$MARK" 2>/dev/null)" != "$EXPECTED" ]; then
     rm -f "$BIN" "$MARK"
     fetch 40
   else
-    printf '%s\n' "$EXPECTED" > "$MARK"
+    mark_verified
   fi
 fi
 
