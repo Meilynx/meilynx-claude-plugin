@@ -123,13 +123,18 @@ verified_now() {
 fetch() {
   # $1: the time budget in seconds for the download.
   mkdir -p "$DIR" 2>/dev/null || fail "cannot create $DIR."
-  TMP="$DIR/.download.$$"
+  # The download always lands in one fixed file name inside the adapter
+  # folder, spelled out in the command, so the download tool is never handed a
+  # computed output path. Two sessions that download at the same moment can
+  # spoil each other's file; the checksum below then fails, the file is
+  # deleted, and the next covered call downloads again.
+  TMP="$DIR/adapter.download"
   rm -f "$TMP"
   if command -v curl >/dev/null 2>&1; then
-    curl -fsSL --proto "$PROTO" --proto-redir "$PROTO" --connect-timeout 10 --max-time "$1" \
-      -o "$TMP" "$BASE_URL/$FILE" 2>/dev/null
+    ( cd "$DIR" && curl -fsSL --proto "$PROTO" --proto-redir "$PROTO" --connect-timeout 10 --max-time "$1" \
+      -o adapter.download "$BASE_URL/$FILE" 2>/dev/null )
   elif command -v wget >/dev/null 2>&1 && [ "$PROTO" = "=https" ]; then
-    wget -q --https-only --timeout="$1" -O "$TMP" "$BASE_URL/$FILE"
+    ( cd "$DIR" && wget -q --https-only --timeout="$1" -O adapter.download "$BASE_URL/$FILE" )
   else
     false
   fi || { rm -f "$TMP"; fail "the adapter could not be downloaded from $BASE_URL."; }
