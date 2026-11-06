@@ -140,9 +140,9 @@ fetch() {
   if command -v curl >/dev/null 2>&1; then
     ( cd "$DIR" && curl -fsSL --proto "$PROTO" --proto-redir "$PROTO" --connect-timeout 10 --max-time "$1" \
       -o adapter.download "$BASE_URL/$FILE" 2>/dev/null )
-  elif command -v wget >/dev/null 2>&1 && [ "$PROTO" = "=https" ]; then
-    ( cd "$DIR" && wget -q --https-only --timeout="$1" -O adapter.download "$BASE_URL/$FILE" )
   else
+    # curl is the one download tool used. A machine without it gets the
+    # message below and covered tool calls stay denied.
     false
   fi || { rm -f "$TMP"; fail "the adapter could not be downloaded from $BASE_URL."; }
   GOT=$(sha256_of "$TMP")
