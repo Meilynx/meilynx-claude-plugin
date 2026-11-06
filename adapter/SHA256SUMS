@@ -1,3 +1,8 @@
 # SHA-256 checksums of the Meilynx hook adapter release named in RELEASE.
 # The hook runner executes a downloaded adapter only when its checksum matches
-# a line here. No release is pinned yet, so every covered tool call is denied.
+# a line here. Copied from the release's signed meilynx-hook-0.1.0-SHA256SUMS.
+ed4f03937723ccf1fb06497f7df74f1c69f1643e243e7d8fe0d6a77ef137aad8  meilynx-hook-0.1.0-aarch64-apple-darwin
+37074d1cc1f909594611907972bab71d7644cebc966c7b89a80fb7dbfbf4e88d  meilynx-hook-0.1.0-aarch64-unknown-linux-musl
+3a2f4e4edf0059420d6bd0b3b9c5316cd9374523e6860182731225c62dba321d  meilynx-hook-0.1.0-x86_64-apple-darwin
+ac35afe1e54fbfc51c2480b572047372af2f672ff44fbabb81ec145dcdf01e76  meilynx-hook-0.1.0-x86_64-unknown-linux-musl
+2b4d690327f5fdb306e00acb50bda3c21a8a32406342368053317711e2dfcd31 *meilynx-hook-0.1.0-x86_64-pc-windows-msvc.exe

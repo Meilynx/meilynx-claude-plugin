@@ -52,6 +52,8 @@ The adapter is a compiled program built by Meilynx for Linux (x86_64 and arm64),
 
 Each release also carries a Sigstore signature and a build provenance attestation for every file, so your security team can confirm independently that a build came from Meilynx's release pipeline.
 
+The macOS builds in release 0.1.0 are not notarized by Apple, and the Windows build carries no Authenticode signature. A device policy that runs only platform-signed programs will refuse the adapter, and covered tool calls are then denied.
+
 ## What happens when something fails
 
 Unless your organization opted into fail open, the plugin blocks a covered tool call whenever it cannot get a decision from the proxy.
