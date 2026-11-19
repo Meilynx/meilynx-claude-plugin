@@ -1,0 +1,43 @@
+# The required check for main (SOC 2 change management, Sprinto
+# REQUIRES_STATUS_CHECKS). Organizations install this plugin into Claude Code
+# and it decides whether a developer's tool calls run, so a change to it is a
+# production change: it merges only through a pull request on which this check
+# passes.
+#
+# It must report on every pull request, so it carries NO `paths:` filter: a
+# required check that never reports blocks every merge. Keep it that way.
+name: plugin-checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: plugin-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  plugin-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      # Pinned so a new Claude Code release cannot change what passes here
+      # without a pull request that moves the pin.
+      - name: Validate the plugin and marketplace manifests
+        run: npx --yes @anthropic-ai/claude-code@2.1.328 plugin validate .
+
+      - name: Lint the hook runner
+        run: shellcheck -s sh scripts/meilynx-hook-run tests/run.sh
+
+      - name: Pinned release and fail-closed tests
+        run: sh tests/run.sh
